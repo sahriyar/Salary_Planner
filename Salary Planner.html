@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Salary Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f4;--surface:#fff;--ink:#14212b;--muted:#5d6b76;--line:#d6dde2;--over:#c0392b;
+--c1:#2f6f8f;--c2:#2e8b62;--c3:#d4577a;--c4:#7a5ac8;--c5:#d9962b;--c6:#1f9aa6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181e;--surface:#18232b;--ink:#e8eef2;--muted:#93a3af;--line:#2b3a45;--over:#ff7a6b}}
+:root[data-theme="dark"]{--bg:#10181e;--surface:#18232b;--ink:#e8eef2;--muted:#93a3af;--line:#2b3a45;--over:#ff7a6b}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 Manrope,system-ui,sans-serif}
+main{max-width:880px;margin:0 auto;padding:24px 16px 48px}
+h1{font:800 clamp(28px,6vw,44px)/1.1 'Bricolage Grotesque',Manrope,sans-serif;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+label.big{display:block;font-weight:700;margin-bottom:6px}
+.salary{display:flex;align-items:center;gap:8px;border:2px solid var(--ink);border-radius:12px;padding:6px 14px;background:var(--bg)}
+.salary span{font:800 28px 'Bricolage Grotesque',sans-serif}
+.salary input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:800 clamp(26px,6vw,38px) 'Bricolage Grotesque',sans-serif;outline:0;width:100%}
+.salary:focus-within{outline:3px solid var(--c1);outline-offset:2px}
+.bar{display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--line);margin:14px 0 10px}
+.bar div{height:100%;transition:width .25s}
+@media (prefers-reduced-motion:reduce){.bar div{transition:none}}
+.status{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-weight:600}
+.status .ok{color:var(--c2)} .status .bad{color:var(--over)}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+button{font:600 14px Manrope,sans-serif;color:var(--ink);background:transparent;border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--ink)} button:focus-visible,input:focus-visible{outline:3px solid var(--c1);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 96px 150px;gap:6px 12px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.name{display:flex;gap:10px;align-items:center;font-weight:700}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.note{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.field{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;background:var(--bg)}
+.field input{width:100%;border:0;background:transparent;color:var(--ink);font:600 16px Manrope,sans-serif;padding:8px 0;text-align:right;outline:0}
+.field:focus-within{border-color:var(--ink)} .field i{font-style:normal;color:var(--muted);margin-left:4px}
+.field.l i{margin:0 6px 0 0}
+.range{grid-column:1/-1}
+input[type=range]{width:100%;accent-color:var(--rc)}
+.yr{grid-column:1/-1;font-size:13px;color:var(--muted);margin-top:-4px}
+@media (max-width:560px){.row{grid-template-columns:1fr 1fr}.name{grid-column:1/-1}}
+.foot{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>Salary Planner</h1>
+<p class="sub">Enter your monthly salary, then split it by percentage or by amount. Both stay in sync.</p>
+
+<section class="panel">
+  <label class="big" for="salary">Monthly salary (BDT)</label>
+  <div class="salary"><span>৳</span><input id="salary" inputmode="decimal" autocomplete="off" placeholder="0"></div>
+  <div class="bar" id="bar" role="img" aria-label="Salary split"></div>
+  <div class="status"><span id="alloc"></span><span id="left"></span></div>
+  <div class="presets">
+    <button data-p="balanced">Balanced</button>
+    <button data-p="saver">Strong saver</button>
+    <button data-p="tight">Tight budget</button>
+    <button id="fill">Move leftover to savings</button>
+    <button id="reset">Clear all</button>
+  </div>
+</section>
+
+<section class="panel" id="rows"></section>
+<p class="foot">Your numbers stay in this browser. Yearly figures are monthly amounts × 12.</p>
+</main>
+
+<script>
+const CATS=[
+ {id:'home',name:'Home & living',note:'Rent, food, bills, transport',v:'--c1'},
+ {id:'save',name:'Savings',note:'Emergency fund and cash reserve',v:'--c2'},
+ {id:'fun',name:'Personal & entertainment',note:'Hobbies, outings, shopping',v:'--c3'},
+ {id:'inv',name:'Investment',note:'Stocks, DPS, sanchaypatra, business',v:'--c4'},
+ {id:'health',name:'Health',note:'Doctor, medicine, insurance, fitness',v:'--c5'},
+ {id:'goal',name:'Long-term goals',note:'Land, house, education, travel',v:'--c6'}];
+const PRESETS={balanced:[45,15,8,12,5,15],saver:[40,20,5,15,5,15],tight:[60,10,5,5,10,10]};
+let S={salary:0,pct:{}};CATS.forEach(c=>S.pct[c.id]=0);
+try{const r=JSON.parse(localStorage.getItem('salaryplanner')||'null');if(r&&r.pct){S=r}}catch(e){}
+const $=id=>document.getElementById(id);
+const fmt=n=>(Math.round(n*100)/100).toLocaleString('en-IN',{maximumFractionDigits:2});
+const num=v=>{const n=parseFloat(String(v).replace(/,/g,''));return isFinite(n)&&n>0?n:0};
+const save=()=>{try{localStorage.setItem('salaryplanner',JSON.stringify(S))}catch(e){}};
+
+const rows=$('rows');
+CATS.forEach(c=>{
+ const d=document.createElement('div');d.className='row';d.style.setProperty('--rc','var('+c.v+')');
+ d.innerHTML=`<div class="name"><span class="dot" style="background:var(${c.v})"></span><span>${c.name}<span class="note">${c.note}</span></span></div>
+ <div class="field"><input id="p-${c.id}" inputmode="decimal" aria-label="${c.name} percentage"><i>%</i></div>
+ <div class="field l"><i>৳</i><input id="a-${c.id}" inputmode="decimal" aria-label="${c.name} amount"></div>
+ <div class="range"><input type="range" id="r-${c.id}" min="0" max="100" step="0.5" aria-label="${c.name} slider"></div>
+ <div class="yr" id="y-${c.id}"></div>`;
+ rows.appendChild(d);
+ $('p-'+c.id).addEventListener('input',e=>{S.pct[c.id]=Math.min(100,num(e.target.value));render(e.target)});
+ $('r-'+c.id).addEventListener('input',e=>{S.pct[c.id]=num(e.target.value);render(e.target)});
+ $('a-'+c.id).addEventListener('input',e=>{
+  if(!S.salary){return}
+  S.pct[c.id]=Math.round(num(e.target.value)/S.salary*10000)/100;render(e.target)});
+});
+$('salary').addEventListener('input',e=>{S.salary=num(e.target.value);render(e.target)});
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+ PRESETS[b.dataset.p].forEach((v,i)=>S.pct[CATS[i].id]=v);render()});
+$('reset').onclick=()=>{CATS.forEach(c=>S.pct[c.id]=0);render()};
+$('fill').onclick=()=>{
+ const left=100-CATS.reduce((a,c)=>a+S.pct[c.id],0);
+ if(left>0){S.pct.save=Math.round((S.pct.save+left)*100)/100}render()};
+
+function render(active){
+ const tot=CATS.reduce((a,c)=>a+S.pct[c.id],0);
+ if(active!==$('salary'))$('salary').value=S.salary?fmt(S.salary):'';
+ CATS.forEach(c=>{
+  const p=S.pct[c.id],a=S.salary*p/100;
+  if(active!==$('p-'+c.id))$('p-'+c.id).value=p?+p.toFixed(2):'';
+  if(active!==$('a-'+c.id))$('a-'+c.id).value=a?fmt(a):'';
+  $('r-'+c.id).value=p;
+  $('y-'+c.id).textContent=a?`Per year: ৳${fmt(a*12)}`:'Per year: ৳0';
+ });
+ $('bar').innerHTML=CATS.map(c=>`<div title="${c.name}" style="width:${Math.min(S.pct[c.id],100)}%;background:var(${c.v})"></div>`).join('');
+ const used=S.salary*tot/100,left=S.salary-used,over=tot>100.001;
+ $('alloc').textContent=`Allocated ${+tot.toFixed(2)}% (৳${fmt(used)})`;
+ const l=$('left');
+ l.className=over?'bad':(Math.abs(tot-100)<0.01?'ok':'');
+ l.textContent=over?`Over by ৳${fmt(-left)} (${+(tot-100).toFixed(2)}%)`:Math.abs(tot-100)<0.01?'Fully planned':`Unplanned ৳${fmt(left)} (${+(100-tot).toFixed(2)}%)`;
+ save();
+}
+render();
+</script>
+</body>
+</html>
